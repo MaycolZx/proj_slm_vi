@@ -1,0 +1,5 @@
+.venv
+BACKUPS
+Crimes_CHICAGO.csv
+*.csv
+server.py

@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Herramienta Visual Analytic de Crimen Urbano + Qwen3-1.7B</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f4f7f6;
+        margin: 0;
+        padding: 20px;
+        color: #333;
+      }
+      .container {
+        max-width: 1300px;
+        margin: auto;
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #2c3e50;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 10px;
+        margin-top: 0;
+      }
+      .query-box {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      input[type="text"] {
+        flex: 1;
+        padding: 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 16px;
+      }
+      button {
+        padding: 12px 24px;
+        background-color: #3498db;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+      }
+      button:hover {
+        background-color: #2980b9;
+      }
+      .status {
+        margin-bottom: 15px;
+        font-weight: bold;
+        color: #e67e22;
+      }
+
+      .dashboard-grid {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 20px;
+      }
+
+      .panel {
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 15px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      }
+
+      .panel h3 {
+        margin-top: 0;
+        font-size: 14px;
+        color: #7f8c8d;
+        text-transform: uppercase;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 5px;
+      }
+
+      pre.sql-code {
+        background: #2c3e50;
+        color: #ecf0f1;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+        font-family: monospace;
+        font-size: 13px;
+        white-space: pre-wrap;
+      }
+      table.raw-data {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      table.raw-data th {
+        background: #34495e;
+        color: white;
+        padding: 8px;
+        text-align: left;
+      }
+      table.raw-data td {
+        border: 1px solid #eee;
+        padding: 8px;
+      }
+
+      #map-container {
+        width: 100%;
+        height: 500px;
+        background-color: #eaeaea;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Herramienta Visual Analytic de Crimen Urbano</h1>
+
+      <div class="query-box">
+        <input
+          type="text"
+          id="pregunta"
+          placeholder="Ej: Muestrame todos los robos ocurridos en diciembre de 2018."
+        />
+        <button onclick="generarAnalisis()">Ejecutar Análisis</button>
+      </div>
+
+      <div id="status" class="status">Listo para recibir instrucciones.</div>
+
+      <div class="dashboard-grid" id="results-area" style="display: none">
+        <div class="audit-column">
+          <div class="panel" style="margin-bottom: 20px">
+            <h3>SQL Generado</h3>
+            <pre id="sql-output" class="sql-code">Esperando ejecucion...</pre>
+          </div>
+
+          <div class="panel">
+            <h3>Muestra de Datos - PostgreSQL</h3>
+            <div
+              id="data-output"
+              style="overflow-x: auto; max-height: 250px"
+            ></div>
+          </div>
+        </div>
+
+        <div class="visual-column">
+          <div
+            class="panel"
+            style="
+              height: 100%;
+              box-sizing: border-box;
+              display: flex;
+              flex-direction: column;
+            "
+          >
+            <h3>Visualizacion</h3>
+            <div id="map-container" style="flex: 1">
+              <span style="color: #7f8c8d"
+                >El mapa o grafico se renderizara aqui.</span
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      async function generarAnalisis() {
+        const pregunta = document.getElementById("pregunta").value;
+        const statusEl = document.getElementById("status");
+        const resultsArea = document.getElementById("results-area");
+        const sqlOutput = document.getElementById("sql-output");
+        const dataOutput = document.getElementById("data-output");
+        const mapContainer = document.getElementById("map-container");
+
+        if (!pregunta) return;
+
+        // Estado de Carga
+        resultsArea.style.display = "grid";
+        statusEl.innerText =
+          "Procesando consulta mediante ...";
+        sqlOutput.innerText = "Generando codigo...";
+        dataOutput.innerHTML = "Extrayendo datos...";
+        mapContainer.innerHTML =
+          '<span style="color: #7f8c8d;">Renderizando analisis visual...</span>';
+
+        try {
+          const response = await fetch("/analizar", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pregunta: pregunta }),
+          });
+
+          const data = await response.json();
+
+          if (data.status === "success") {
+            statusEl.innerText = `Éxito: Latencia del modelo: ${data.latencia}s | Modo: ${data.tipo.toUpperCase()}`;
+
+            sqlOutput.innerText = data.sql;
+
+            let tablaHTML = '<table class="raw-data"><tr>';
+            data.columnas.forEach((col) => (tablaHTML += `<th>${col}</th>`));
+            tablaHTML += "</tr>";
+            data.datos_crudos.forEach((fila) => {
+              tablaHTML += "<tr>";
+              fila.forEach((val) => (tablaHTML += `<td>${val}</td>`));
+              tablaHTML += "</tr>";
+            });
+            tablaHTML += "</table>";
+            dataOutput.innerHTML = tablaHTML;
+
+            if (data.tipo === "mapa") {
+              mapContainer.innerHTML =
+                '<iframe id="mapa-iframe" style="width:100%; height:100%; border:none;"></iframe>';
+              const iframeDoc =
+                document.getElementById("mapa-iframe").contentWindow.document;
+              iframeDoc.open();
+              iframeDoc.write(data.html);
+              iframeDoc.close();
+            } else if (data.tipo === "tabla") {
+              mapContainer.innerHTML = `<div style="width: 100%; height: 100%; overflow: auto; background: white;">${tablaHTML}</div>`;
+            }
+          } else {
+            statusEl.innerText = `Error / Bloqueo de Seguridad: ${data.mensaje}`;
+            sqlOutput.innerText = "Operacion abortada.";
+            dataOutput.innerHTML = "";
+            mapContainer.innerHTML =
+              '<span style="color: #c0392b;">Visualizacion cancelada por prevencion del sistema.</span>';
+          }
+        } catch (error) {
+          statusEl.innerText = "Error de conexion con el orquestador local.";
+        }
+      }
+    </script>
+  </body>
+</html>
