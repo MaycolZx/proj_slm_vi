@@ -129,30 +129,35 @@ def analizar():
             }
 
             mapa = KeplerGl(height=600, data={"crimenes": df}, config=config_kepler)
-            html_mapa = mapa._repr_html_().decode("utf-8")
+            # html_mapa = mapa._repr_html_().decode("utf-8")
+            html_mapa = mapa.get_html(center_map=True)
 
             muestra_datos = df.head(5).values.tolist()
-            return jsonify({
-                'status': 'success', 
-                'tipo': 'mapa', 
-                'latencia': latencia, 
-                'sql': sql_generado,
-                'columnas': columnas,
-                'datos_crudos': muestra_datos,
-                'html': html_mapa
-            })
+            return jsonify(
+                {
+                    "status": "success",
+                    "tipo": "mapa",
+                    "latencia": latencia,
+                    "sql": sql_generado,
+                    "columnas": columnas,
+                    "datos_crudos": muestra_datos,
+                    "html": html_mapa,
+                }
+            )
 
         else:
-            datos_tabla = resultados[:10] 
-            return jsonify({
-                'status': 'success', 
-                'tipo': 'tabla', 
-                'latencia': latencia, 
-                'sql': sql_generado,
-                'columnas': columnas, 
-                'datos_crudos': datos_tabla,
-                'html': None
-            })
+            datos_tabla = resultados[:10]
+            return jsonify(
+                {
+                    "status": "success",
+                    "tipo": "tabla",
+                    "latencia": latencia,
+                    "sql": sql_generado,
+                    "columnas": columnas,
+                    "datos_crudos": datos_tabla,
+                    "html": None,
+                }
+            )
 
     except Exception as e:
         return jsonify({"status": "error", "mensaje": str(e)})
